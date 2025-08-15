@@ -9,5 +9,4 @@ class SpringToDoApplicationTests {
     @Test
     void contextLoads() {
     }
-
 }

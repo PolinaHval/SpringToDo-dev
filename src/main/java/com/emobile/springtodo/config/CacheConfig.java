@@ -21,3 +21,4 @@ public class CacheConfig {
         .entryTtl(Duration.ofMinutes(10));
   }
 }
+

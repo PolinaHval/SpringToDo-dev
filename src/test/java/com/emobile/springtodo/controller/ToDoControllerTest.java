@@ -118,3 +118,4 @@ public class ToDoControllerTest extends AbstractIntegrationToDoTest {
         .andExpect(jsonPath("$.message").value("задача с id 3 успешно обновлена"));
   }
 }
+

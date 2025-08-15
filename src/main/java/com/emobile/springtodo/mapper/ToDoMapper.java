@@ -12,3 +12,4 @@ public interface ToDoMapper {
 
   ToDoDto toDto(ToDo toDo);
 }
+

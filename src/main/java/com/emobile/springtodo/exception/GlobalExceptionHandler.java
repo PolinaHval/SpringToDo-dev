@@ -35,3 +35,4 @@ public class GlobalExceptionHandler {
     return new ErrorMessage("Объект не найден." + ex.getMessage());
   }
 }
+

@@ -24,3 +24,4 @@ public class AbstractIntegrationToDoTest {
     dynamicPropertyRegistry.add("spring.datasource.password",container::getPassword);
   }
 }
+

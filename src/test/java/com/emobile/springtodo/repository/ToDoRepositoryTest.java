@@ -96,3 +96,4 @@ class ToDoRepositoryTest extends AbstractIntegrationToDoTest {
     assertTrue(updated.isCompleted());
   }
 }
+
