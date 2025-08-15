@@ -2,11 +2,13 @@ package com.emobile.springtodo.integration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 public class AbstractIntegrationToDoTest {
 
+  @Container
   static PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:13.4")
       .withUsername("postgres")
       .withPassword("postgres")

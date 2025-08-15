@@ -30,5 +30,3 @@ public interface ToDoApiDocs {
   Map<String, String> updateCompleted(@Parameter(description = "ID задачи, которой необходимо изменить поле completed") long idToDo,
                       @Parameter(description = "Новое значение") boolean completed);
 }
-
-

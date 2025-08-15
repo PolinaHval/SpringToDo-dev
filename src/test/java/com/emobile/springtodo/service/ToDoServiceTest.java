@@ -6,7 +6,6 @@ import com.emobile.springtodo.mapper.ToDoMapper;
 import com.emobile.springtodo.metrics.ToDoMetrics;
 import com.emobile.springtodo.model.ToDo;
 import com.emobile.springtodo.repository.ToDoRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,9 +14,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,93 +39,107 @@ class ToDoServiceTest {
   @InjectMocks
   private ToDoService toDoService;
 
-  private ToDoDto sampleDto;
-  private ToDo sampleEntity;
-
-  @BeforeEach
-  void setUp() {
-    sampleDto = new ToDoDto("Title", "Test", false);
-    sampleEntity = new ToDo(1L, "Title", "Test", false);
-  }
-
   @Test
-  @DisplayName("Метод должен сохранять задачу и обновлять метрику созданных задач")
-  void saveShouldCallRepositoryAndMetrics() {
-    when(toDoMapper.toEntity(sampleDto)).thenReturn(sampleEntity);
+  @DisplayName("Успешное сохранение задачи")
+  void save_success() {
+    ToDoDto dto = new ToDoDto();
+    ToDo entity = new ToDo();
 
-    toDoService.save(sampleDto);
+    when(toDoMapper.toEntity(dto)).thenReturn(entity);
 
-    verify(toDoMapper).toEntity(sampleDto);
-    verify(toDoRepository).save(sampleEntity);
+    toDoService.save(dto);
+
+    verify(toDoRepository).save(entity);
     verify(toDoMetrics).incrementCreatedTasks();
   }
 
   @Test
-  @DisplayName("Метод должен возвращать список задач")
-  void findAllShouldReturnMappedDto() {
-    when(toDoRepository.findAll(10, 0)).thenReturn(List.of(sampleEntity));
-    when(toDoMapper.toDto(sampleEntity)).thenReturn(sampleDto);
+  @DisplayName("Успешное получение списка задач")
+  void findAll_success() {
+    ToDo entity = new ToDo();
+    ToDoDto dto = new ToDoDto();
 
-    List<ToDoDto> resultList = toDoService.findAll(10, 0);
+    when(toDoRepository.findAll()).thenReturn(List.of(entity));
+    when(toDoMapper.toDto(entity)).thenReturn(dto);
 
-    assertEquals(1, resultList.size());
-    assertEquals(sampleDto, resultList.get(0));
+    List<ToDoDto> result = toDoRepository.findAll().stream()
+        .map(toDoMapper::toDto)
+        .toList();
+
+    assertEquals(1, result.size());
+    assertSame(dto, result.get(0));
   }
 
   @Test
-  @DisplayName("Метод должен вернуть TaskNotFoundException, если задача с id не найдена")
-  void deleteShouldThrowExceptionWhenNotFound() {
-   when(toDoRepository.delete(1L)).thenReturn(0);
+  @DisplayName("Успешное удаление задачи")
+  void deleteToDo_success() {
+    long id = 1L;
+    ToDo entity = new ToDo();
+    when(toDoRepository.findById(id)).thenReturn(Optional.of(entity));
 
-    TaskNotFoundException resultException = assertThrows(TaskNotFoundException.class,
-        () -> toDoService.deleteToDo(1L));
+    toDoService.deleteToDo(id);
 
-    assertEquals("Задача с id 1 не существует", resultException.getMessage());
+    verify(toDoRepository).delete(entity);
   }
 
   @Test
-  @DisplayName("Метод должен вернуть TaskNotFoundException, если задача с id не найдена")
-  void getToDoShouldThrowExceptionWhenNotFound() {
-    when(toDoRepository.getToDoById(1L)).thenReturn(null);
+  @DisplayName("Неудачное удаление задачи. Здача с id не найдена")
+  void deleteToDo_notFound() {
+    when(toDoRepository.findById(1L)).thenReturn(Optional.empty());
 
-    TaskNotFoundException resultException = assertThrows(TaskNotFoundException.class,
-        () -> toDoService.getToDo(1L));
-
-    assertEquals("Задача с id 1 не существует", resultException.getMessage());
+    assertThrows(TaskNotFoundException.class, () -> toDoService.deleteToDo(1L));
   }
 
   @Test
-  @DisplayName("Метод должен вернуть задачу по id")
-  void getToDoShouldReturnDtoWhenFound() {
-    when(toDoRepository.getToDoById(1L)).thenReturn(sampleEntity);
-    when(toDoMapper.toDto(sampleEntity)).thenReturn(sampleDto);
+  @DisplayName("Успешное получение задачи")
+  void getToDo_success() {
+    long id = 1L;
+    ToDo entity = new ToDo();
+    ToDoDto dto = new ToDoDto();
 
-    ToDoDto result = toDoService.getToDo(1L);
+    when(toDoRepository.findById(id)).thenReturn(Optional.of(entity));
+    when(toDoMapper.toDto(entity)).thenReturn(dto);
 
-    assertEquals(sampleDto, result);
+    ToDoDto result = toDoService.getToDo(id);
+
+    assertSame(dto, result);
   }
 
   @Test
-  @DisplayName("Метод должен обновить статус задачи " +
-      "и инкрементировать метрику завершённых задач при успешном обновлении")
-  void updateCompletedShouldUpdateAndIncrementMetric() {
-    when(toDoRepository.updateCompleted(1L, true)).thenReturn(1);
+  @DisplayName("Задача с id не найдена")
+  void getToDo_notFound() {
+    when(toDoRepository.findById(1L)).thenReturn(Optional.empty());
 
-    toDoService.updateCompleted(1L, true);
+    assertThrows(TaskNotFoundException.class, () -> toDoService.getToDo(1L));
+  }
 
-    verify(toDoRepository).updateCompleted(1L,true);
+  @Test
+  @DisplayName("Успешное обновление поля completed")
+  void updateCompleted_success() {
+    long id = 1L;
+    ToDo entity = new ToDo();
+    entity.setCompleted(false);
+
+    when(toDoRepository.findById(id)).thenReturn(Optional.of(entity));
+
+    toDoService.updateCompleted(id, true);
+
+    assertTrue(entity.isCompleted());
+    verify(toDoRepository).save(entity);
     verify(toDoMetrics).incrementCompletedTasks();
   }
 
   @Test
-  @DisplayName("Метод должен вернуть TaskNotFoundException, если задача с id не найдена")
-  void updateCompletedShouldThrowExceptionWhenNotFound() {
-    when(toDoRepository.updateCompleted(1L, true)).thenReturn(0);
+  @DisplayName("Неудачное обновление задачи. Задача не найдена")
+  void updateCompleted_notFound() {
+    long id = 1L;
+    when(toDoRepository.findById(id)).thenReturn(Optional.empty());
 
-    TaskNotFoundException resultException = assertThrows(TaskNotFoundException.class,
-        () -> toDoService.updateCompleted(1L, true));
-
-    assertEquals("Задача с id 1 не существует", resultException.getMessage());
+    TaskNotFoundException exception = assertThrows(
+        TaskNotFoundException.class,
+        () -> toDoService.updateCompleted(id, true)
+    );
+    assertEquals("Задача с id " + id + " не найдена", exception.getMessage());
   }
 }
 

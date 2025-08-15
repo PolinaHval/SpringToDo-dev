@@ -6,94 +6,80 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.jdbc.Sql;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-@DataJpaTest
+@SpringBootTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(ToDoRepository.class)
-@Sql(scripts = {"/schema.sql", "/data.sql"}, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class ToDoRepositoryTest extends AbstractIntegrationToDoTest {
 
   @Autowired
   private ToDoRepository toDoRepository;
 
   @Test
-  @DisplayName("Сохраняет новую задачу и проверяет корректность сохранения")
-  void saveToDo(){
-    ToDo toDo = new ToDo();
-    toDo.setId(1L);
-    toDo.setTitle("Title test");
-    toDo.setDescription("Description test");
-    toDo.setCompleted(false);
+  @DisplayName("Успешное сохранение задачи")
+  void saveToDo_success() {
+    ToDo todo = new ToDo();
+    todo.setTitle("Test Task");
+    todo.setDescription("Description");
+    todo.setCompleted(false);
 
-    toDoRepository.save(toDo);
+    ToDo saved = toDoRepository.save(todo);
 
-    List<ToDo> all = toDoRepository.findAll(10, 0);
-    ToDo saved = all.get(all.size() - 1);
-
-    assertEquals(toDo.getTitle(), saved.getTitle());
-    assertEquals("Description test", saved.getDescription());
+    assertNotNull(saved.getId());
+    assertEquals("Test Task", saved.getTitle());
     assertFalse(saved.isCompleted());
   }
 
   @Test
-  @DisplayName("Получает все задачи с ограничением и смещением")
-  void findAllTest(){
-    List<ToDo> todos = toDoRepository.findAll(10, 0);
+  @DisplayName("Успешный поиск задачи по id")
+  void findById_success() {
+    ToDo todo = new ToDo();
+    todo.setTitle("Find Task");
+    todo.setDescription("Description");
+    ToDo saved = toDoRepository.save(todo);
 
-    assertNotNull(todos);
-    assertEquals(3, todos.size());
+    Optional<ToDo> found = toDoRepository.findById(saved.getId());
+    assertTrue(found.isPresent());
+    assertEquals("Find Task", found.get().getTitle());
   }
 
   @Test
-  @DisplayName("Удаляет задачу по ID и проверяет, что она удалена")
-  void testDelete() {
-    int rowsAffected = toDoRepository.delete(1L);
+  @DisplayName("Успешное удаление задач")
+  void deleteToDo_success() {
+    ToDo todo = new ToDo();
+    todo.setTitle("Delete Task");
+    todo.setDescription("Description");
+    ToDo saved = toDoRepository.save(todo);
 
-    assertEquals(1, rowsAffected);
+    toDoRepository.delete(saved);
 
-    ToDo deleted = toDoRepository.getToDoById(1L);
-
-    assertNull(deleted);
+    Optional<ToDo> found = toDoRepository.findById(saved.getId());
+    assertTrue(found.isEmpty());
   }
 
   @Test
-  @DisplayName("Получает задачу по существующему ID")
-  void testGetToDoByIdExists() {
-    ToDo todo = toDoRepository.getToDoById(2L);
+  @DisplayName("Успешное получение списка задач")
+  void findAll_success() {
+    ToDo todo1 = new ToDo();
+    todo1.setTitle("Task 1");
+    todo1.setDescription("Description First");
+    ToDo todo2 = new ToDo();
+    todo2.setDescription("Description Second");
+    todo2.setTitle("Task 2");
 
-    assertNotNull(todo);
-    assertEquals("Title2", todo.getTitle());
-  }
+    toDoRepository.save(todo1);
+    toDoRepository.save(todo2);
 
-  @Test
-  @DisplayName("Получение задачи по несуществующему ID возвращает null")
-  void testGetToDoByIdNotExists() {
-    ToDo todo = toDoRepository.getToDoById(20L);
-
-    assertNull(todo);
-  }
-
-  @Test
-  @DisplayName("Обновляет статус completed задачи и проверяет обновление")
-  void testUpdateCompleted() {
-    int rowsUpdated = toDoRepository.updateCompleted(2L, true);
-
-    assertEquals(1, rowsUpdated);
-
-    ToDo updated = toDoRepository.getToDoById(2L);
-
-    assertTrue(updated.isCompleted());
+    List<ToDo> todos = toDoRepository.findAll();
+    assertEquals(2, todos.size());
   }
 }
 
