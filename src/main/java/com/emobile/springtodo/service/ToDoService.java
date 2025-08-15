@@ -8,7 +8,10 @@ import com.emobile.springtodo.model.ToDo;
 import com.emobile.springtodo.repository.ToDoRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -24,46 +27,44 @@ public class ToDoService {
     this.toDoMetrics = toDoMetrics;
   }
 
+  @Transactional
   public void save(ToDoDto toDoDto){
     ToDo entity = toDoMapper.toEntity(toDoDto);
     toDoRepository.save(entity);
     toDoMetrics.incrementCreatedTasks();
   }
 
+  @Transactional(readOnly = true)
   public List<ToDoDto> findAll(int limit, int offset){
-    List<ToDo> todos = toDoRepository.findAll(limit,offset);
-    return todos.stream().map(toDoMapper::toDto).toList();
+    Pageable pageable = PageRequest.of(offset / limit, limit);
+    return toDoRepository.findAll(pageable).getContent().stream().map(toDoMapper::toDto).toList();
   }
 
+  @Transactional
   @CacheEvict(value = "todo")
   public void deleteToDo(long idToDo){
-    int deleted = toDoRepository.delete(idToDo);
+    ToDo toDo = toDoRepository.findById(idToDo)
+        .orElseThrow(() -> new TaskNotFoundException("Задача с id " + idToDo +" не найдена"));
 
-    if(deleted == 0){
-      throw new TaskNotFoundException("Задача с id " + idToDo + " не существует");
-    }
-
-    toDoRepository.delete(idToDo);
+    toDoRepository.delete(toDo);
   }
 
   @Cacheable(value = "todo")
+  @Transactional(readOnly = true)
   public ToDoDto getToDo(long idToDo){
-    ToDo toDo = toDoRepository.getToDoById(idToDo);
-
-    if(toDo == null){
-      throw new TaskNotFoundException("Задача с id " + idToDo + " не существует");
-    }
-
+    ToDo toDo = toDoRepository.findById(idToDo)
+        .orElseThrow(() -> new TaskNotFoundException("Задача с id " + idToDo +" не найдена"));
     return toDoMapper.toDto(toDo);
   }
 
+  @Transactional
   public void updateCompleted(long idToDo, boolean completed){
-    int update = toDoRepository.updateCompleted(idToDo, completed);
+    ToDo toDo = toDoRepository.findById(idToDo)
+        .orElseThrow(() -> new TaskNotFoundException("Задача с id " + idToDo +" не найдена"));
 
-    if(update == 0 ){
-      throw new TaskNotFoundException("Задача с id " + idToDo + " не существует");
+    toDo.setCompleted(completed);
+    toDoRepository.save(toDo);
 
-    }
      toDoMetrics.incrementCompletedTasks();
   }
 }
