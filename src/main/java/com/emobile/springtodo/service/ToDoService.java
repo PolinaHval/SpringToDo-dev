@@ -26,6 +26,7 @@ public class ToDoService {
 
   public void save(ToDoDto toDoDto){
     ToDo entity = toDoMapper.toEntity(toDoDto);
+
     toDoRepository.save(entity);
     toDoMetrics.incrementCreatedTasks();
   }
@@ -37,9 +38,9 @@ public class ToDoService {
 
   @CacheEvict(value = "todo")
   public void deleteToDo(long idToDo){
-    int deleted = toDoRepository.delete(idToDo);
+    ToDo toDo = toDoRepository.getToDoById(idToDo);
 
-    if(deleted == 0){
+    if(toDo == null){
       throw new TaskNotFoundException("Задача с id " + idToDo + " не существует");
     }
 
@@ -58,12 +59,14 @@ public class ToDoService {
   }
 
   public void updateCompleted(long idToDo, boolean completed){
-    int update = toDoRepository.updateCompleted(idToDo, completed);
+    ToDo toDo = toDoRepository.getToDoById(idToDo);
 
-    if(update == 0 ){
+    if(toDo == null){
       throw new TaskNotFoundException("Задача с id " + idToDo + " не существует");
-
     }
-     toDoMetrics.incrementCompletedTasks();
+
+    toDoRepository.updateCompleted(idToDo,completed);
+
+    toDoMetrics.incrementCompletedTasks();
   }
 }
