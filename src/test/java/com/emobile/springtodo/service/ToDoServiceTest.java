@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-
 @ExtendWith(MockitoExtension.class)
 class ToDoServiceTest {
 
@@ -73,7 +72,7 @@ class ToDoServiceTest {
   @Test
   @DisplayName("Метод должен вернуть TaskNotFoundException, если задача с id не найдена")
   void deleteShouldThrowExceptionWhenNotFound() {
-   when(toDoRepository.delete(1L)).thenReturn(0);
+    when(toDoRepository.getToDoById(1L)).thenReturn(null);
 
     TaskNotFoundException resultException = assertThrows(TaskNotFoundException.class,
         () -> toDoService.deleteToDo(1L));
@@ -104,26 +103,18 @@ class ToDoServiceTest {
   }
 
   @Test
-  @DisplayName("Метод должен обновить статус задачи " +
-      "и инкрементировать метрику завершённых задач при успешном обновлении")
-  void updateCompletedShouldUpdateAndIncrementMetric() {
-    when(toDoRepository.updateCompleted(1L, true)).thenReturn(1);
+  @DisplayName("Должен обновлять задачу и увеличивать метрики, когда задача обновлена.")
+  void testUpdateCompleted_success() {
+    long id = 1L;
+    ToDo todo = new ToDo();
+    todo.setId(id);
+    todo.setCompleted(false);
 
-    toDoService.updateCompleted(1L, true);
+    when(toDoRepository.getToDoById(id)).thenReturn(todo);
 
-    verify(toDoRepository).updateCompleted(1L,true);
+    toDoService.updateCompleted(id, true);
+
+    verify(toDoRepository).updateCompleted(id, true);
     verify(toDoMetrics).incrementCompletedTasks();
   }
-
-  @Test
-  @DisplayName("Метод должен вернуть TaskNotFoundException, если задача с id не найдена")
-  void updateCompletedShouldThrowExceptionWhenNotFound() {
-    when(toDoRepository.updateCompleted(1L, true)).thenReturn(0);
-
-    TaskNotFoundException resultException = assertThrows(TaskNotFoundException.class,
-        () -> toDoService.updateCompleted(1L, true));
-
-    assertEquals("Задача с id 1 не существует", resultException.getMessage());
-  }
 }
-

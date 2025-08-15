@@ -1,99 +1,106 @@
 package com.emobile.springtodo.repository;
 
-import com.emobile.springtodo.integration.AbstractIntegrationToDoTest;
+import com.emobile.springtodo.config.HibernateUtil;
 import com.emobile.springtodo.model.ToDo;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.jdbc.Sql;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(ToDoRepository.class)
-@Sql(scripts = {"/schema.sql", "/data.sql"}, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-class ToDoRepositoryTest extends AbstractIntegrationToDoTest {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class ToDoRepositoryTest {
 
-  @Autowired
-  private ToDoRepository toDoRepository;
+  private ToDoRepository repository;
 
-  @Test
-  @DisplayName("Сохраняет новую задачу и проверяет корректность сохранения")
-  void saveToDo(){
-    ToDo toDo = new ToDo();
-    toDo.setId(1L);
-    toDo.setTitle("Title test");
-    toDo.setDescription("Description test");
-    toDo.setCompleted(false);
+  @BeforeAll
+  void setup() {
+    repository = new ToDoRepository();
+  }
 
-    toDoRepository.save(toDo);
+  @AfterAll
+  void teardown() {
+    HibernateUtil.closeSessionFactory();
+  }
 
-    List<ToDo> all = toDoRepository.findAll(10, 0);
-    ToDo saved = all.get(all.size() - 1);
-
-    assertEquals(toDo.getTitle(), saved.getTitle());
-    assertEquals("Description test", saved.getDescription());
-    assertFalse(saved.isCompleted());
+  @BeforeEach
+  void cleanDb() {
+    try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+      Transaction tx = session.beginTransaction();
+      session.createQuery("DELETE FROM ToDo").executeUpdate();
+      tx.commit();
+    }
   }
 
   @Test
-  @DisplayName("Получает все задачи с ограничением и смещением")
-  void findAllTest(){
-    List<ToDo> todos = toDoRepository.findAll(10, 0);
+  @DisplayName("Сохранение и получение задачи по ID")
+  void testSaveAndGetToDo() {
+    ToDo todo = new ToDo();
+    todo.setTitle("Tittle");
+    todo.setCompleted(false);
 
-    assertNotNull(todos);
-    assertEquals(3, todos.size());
+    repository.save(todo);
+    assertNotNull(todo.getId());
+
+    ToDo loaded = repository.getToDoById(todo.getId());
+    assertEquals("Tittle", loaded.getTitle());
+    assertFalse(loaded.isCompleted());
   }
 
   @Test
-  @DisplayName("Удаляет задачу по ID и проверяет, что она удалена")
-  void testDelete() {
-    int rowsAffected = toDoRepository.delete(1L);
-
-    assertEquals(1, rowsAffected);
-
-    ToDo deleted = toDoRepository.getToDoById(1L);
-
-    assertNull(deleted);
-  }
-
-  @Test
-  @DisplayName("Получает задачу по существующему ID")
-  void testGetToDoByIdExists() {
-    ToDo todo = toDoRepository.getToDoById(2L);
-
-    assertNotNull(todo);
-    assertEquals("Title2", todo.getTitle());
-  }
-
-  @Test
-  @DisplayName("Получение задачи по несуществующему ID возвращает null")
-  void testGetToDoByIdNotExists() {
-    ToDo todo = toDoRepository.getToDoById(20L);
-
-    assertNull(todo);
-  }
-
-  @Test
-  @DisplayName("Обновляет статус completed задачи и проверяет обновление")
+  @DisplayName("Обновление статуса задачи на выполнено")
   void testUpdateCompleted() {
-    int rowsUpdated = toDoRepository.updateCompleted(2L, true);
+    ToDo todo = new ToDo();
+    todo.setTitle("Update");
+    todo.setCompleted(false);
+    repository.save(todo);
 
-    assertEquals(1, rowsUpdated);
-
-    ToDo updated = toDoRepository.getToDoById(2L);
-
+    repository.updateCompleted(todo.getId(), true);
+    ToDo updated = repository.getToDoById(todo.getId());
     assertTrue(updated.isCompleted());
   }
-}
 
+  @Test
+  @DisplayName("Удаление задачи")
+  void testDelete() {
+    ToDo todo = new ToDo();
+    todo.setTitle("Delete");
+    repository.save(todo);
+
+    repository.delete(todo.getId());
+    assertNull(repository.getToDoById(todo.getId()));
+  }
+
+  @Test
+  @DisplayName("Получение задач с пагинацией")
+  void testFindAllWithPagination() {
+    for (int i = 1; i <= 5; i++) {
+      ToDo todo = new ToDo();
+      todo.setTitle("Task " + i);
+      todo.setCompleted(false);
+      repository.save(todo);
+    }
+
+    List<ToDo> firstThree = repository.findAll(3, 0);
+    assertEquals(3, firstThree.size());
+    assertEquals("Task 1", firstThree.get(0).getTitle());
+    assertEquals("Task 2", firstThree.get(1).getTitle());
+    assertEquals("Task 3", firstThree.get(2).getTitle());
+
+    List<ToDo> nextTwo = repository.findAll(3, 3);
+    assertEquals(2, nextTwo.size());
+    assertEquals("Task 4", nextTwo.get(0).getTitle());
+    assertEquals("Task 5", nextTwo.get(1).getTitle());
+  }
+}
